@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "templates": [
+    {
+      "id": "claude-md",
+      "source": "CLAUDE.template.md",
+      "output": "CLAUDE.md",
+      "mode": "render"
+    },
+    {
+      "id": "agent-architect",
+      "source": "agents/architect.md",
+      "output": ".claude/agents/architect.md",
+      "mode": "copy"
+    },
+    {
+      "id": "agent-engineer",
+      "source": "agents/engineer.md",
+      "output": ".claude/agents/engineer.md",
+      "mode": "copy"
+    },
+    {
+      "id": "agent-qa",
+      "source": "agents/qa.md",
+      "output": ".claude/agents/qa.md",
+      "mode": "copy"
+    },
+    {
+      "id": "memory-architect",
+      "source": "memory-header.template.md",
+      "output": ".claude/agents/memory/architect-lessons.md",
+      "mode": "render",
+      "render_vars": {"AGENT_NAME": "Architect"}
+    },
+    {
+      "id": "memory-engineer",
+      "source": "memory-header.template.md",
+      "output": ".claude/agents/memory/engineer-lessons.md",
+      "mode": "render",
+      "render_vars": {"AGENT_NAME": "Engineer"}
+    },
+    {
+      "id": "memory-qa",
+      "source": "memory-header.template.md",
+      "output": ".claude/agents/memory/qa-lessons.md",
+      "mode": "render",
+      "render_vars": {"AGENT_NAME": "QA"}
+    },
+    {
+      "id": "skill-pipeline",
+      "source": "skills/pipeline-SKILL.md",
+      "output": ".claude/skills/pipeline/SKILL.md",
+      "mode": "copy"
+    },
+    {
+      "id": "skill-critique",
+      "source": "skills/critique-SKILL.md",
+      "output": ".claude/skills/critique/SKILL.md",
+      "mode": "copy"
+    },
+    {
+      "id": "hook-guard",
+      "source": "hooks/guard-protected-files.sh",
+      "output": ".claude/hooks/guard-protected-files.sh",
+      "mode": "copy"
+    },
+    {
+      "id": "hook-memory",
+      "source": "hooks/memory-reminder.sh",
+      "output": ".claude/hooks/memory-reminder.sh",
+      "mode": "copy"
+    },
+    {
+      "id": "settings-json",
+      "source": "settings.json",
+      "output": ".claude/settings.json",
+      "mode": "copy"
+    }
+  ]
+}

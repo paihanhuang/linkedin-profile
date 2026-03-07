@@ -1,17 +1,43 @@
 """Project scaffolding tool — generate a complete Claude Code project setup from templates."""
 
-import json
 import logging
-import os
 import re
 import shutil
 from pathlib import Path
 
 from src.config import resolve_templates_dir
+from src.template_engine import TemplateError, load_manifest, render_template
 
 logger = logging.getLogger(__name__)
 
 NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+
+
+def _build_structure_tree(project_name: str) -> str:
+    """Build the project directory tree string."""
+    lines = [
+        f"{project_name}/",
+        "├── CLAUDE.md",
+        "├── .claude/",
+        "│   ├── settings.json",
+        "│   ├── hooks/",
+        "│   │   ├── guard-protected-files.sh",
+        "│   │   └── memory-reminder.sh",
+        "│   ├── agents/",
+        "│   │   ├── architect.md",
+        "│   │   ├── engineer.md",
+        "│   │   ├── qa.md",
+        "│   │   └── memory/",
+        "│   │       ├── architect-lessons.md",
+        "│   │       ├── engineer-lessons.md",
+        "│   │       └── qa-lessons.md",
+        "│   └── skills/",
+        "│       ├── pipeline/",
+        "│       │   └── SKILL.md",
+        "│       └── critique/",
+        "│           └── SKILL.md",
+    ]
+    return "\n".join(lines)
 
 
 def scaffold_project(
@@ -54,15 +80,11 @@ def scaffold_project(
         return {"error": "Templates directory not found",
                 "details": {"hint": "Set CLAUDE_MCP_TEMPLATES_DIR environment variable"}}
 
-    template_file = templates_dir / "CLAUDE.template.md"
-    if not template_file.exists():
-        return {"error": "Template file not found",
-                "details": {"path": str(template_file)}}
-
-    agents_dir = templates_dir / "agents"
-    if not agents_dir.is_dir():
-        return {"error": "Agent templates directory not found",
-                "details": {"path": str(agents_dir)}}
+    # Load and validate manifest
+    try:
+        manifest = load_manifest(templates_dir)
+    except TemplateError as e:
+        return {"error": str(e), "details": {"type": "manifest_error"}}
 
     # Resolve output directory
     target = Path(output_dir) if output_dir else Path.cwd()
@@ -72,7 +94,6 @@ def scaffold_project(
     warnings: list[str] = []
 
     def _write_file(rel_path: str, content: str) -> None:
-        """Write a file, respecting force flag."""
         full_path = target / rel_path
         if full_path.exists() and not force:
             warnings.append(f"Skipped existing file: {rel_path}")
@@ -82,7 +103,6 @@ def scaffold_project(
         files_created.append(rel_path)
 
     def _copy_file(src: Path, rel_path: str) -> None:
-        """Copy a file verbatim, respecting force flag."""
         full_path = target / rel_path
         if full_path.exists() and not force:
             warnings.append(f"Skipped existing file: {rel_path}")
@@ -91,44 +111,12 @@ def scaffold_project(
         shutil.copy2(str(src), str(full_path))
         files_created.append(rel_path)
 
-    # Format milestones as markdown list
+    # Build global placeholder map
     milestones_md = "\n".join(f"- **M{i+1}:** {m}" for i, m in enumerate(milestones))
+    constraints_md = "\n".join(f"- {c}" for c in domain_constraints) if domain_constraints else ""
+    structure_md = _build_structure_tree(project_name)
 
-    # Format domain constraints
-    if domain_constraints and len(domain_constraints) > 0:
-        constraints_md = "\n".join(f"- {c}" for c in domain_constraints)
-    else:
-        constraints_md = "None specified"
-
-    # Build project structure listing
-    structure_lines = [
-        f"{project_name}/",
-        f"├── CLAUDE.md",
-        f"├── .claude/",
-        f"│   ├── settings.json",
-        f"│   ├── hooks/",
-        f"│   │   ├── guard-protected-files.sh",
-        f"│   │   └── memory-reminder.sh",
-        f"│   ├── agents/",
-        f"│   │   ├── architect.md",
-        f"│   │   ├── engineer.md",
-        f"│   │   ├── qa.md",
-        f"│   │   └── memory/",
-        f"│   │       ├── architect-lessons.md",
-        f"│   │       ├── engineer-lessons.md",
-        f"│   │       └── qa-lessons.md",
-        f"│   └── skills/",
-        f"│       ├── pipeline/",
-        f"│       │   └── SKILL.md",
-        f"│       └── critique/",
-        f"│           └── SKILL.md",
-    ]
-    structure_md = "\n".join(structure_lines)
-
-    # Read and process template — single-pass replacement to prevent injection
-    template_content = template_file.read_text(encoding="utf-8")
-
-    placeholder_map = {
+    global_placeholders = {
         "PROJECT_NAME": project_name,
         "PROJECT_DESCRIPTION": description,
         "TECH_STACK": tech_stack,
@@ -137,121 +125,23 @@ def scaffold_project(
         "PROJECT_STRUCTURE": structure_md,
     }
 
-    def _replace_placeholder(match: re.Match) -> str:
-        key = match.group(1)
-        return placeholder_map.get(key, match.group(0))
+    # Process each manifest entry
+    for entry in manifest["templates"]:
+        mode = entry["mode"]
+        source = templates_dir / entry["source"]
+        output_path = entry["output"]
 
-    claude_md = re.sub(r"\{\{(\w+)\}\}", _replace_placeholder, template_content)
-
-    # Write CLAUDE.md
-    _write_file("CLAUDE.md", claude_md)
-
-    # Copy agent templates verbatim
-    for agent_file in ["architect.md", "engineer.md", "qa.md"]:
-        src = agents_dir / agent_file
-        if src.exists():
-            _copy_file(src, f".claude/agents/{agent_file}")
-        else:
-            warnings.append(f"Agent template not found: {agent_file}")
-
-    # Create empty memory files with header comments
-    memory_header = (
-        "# {agent} Lessons\n\n"
-        "<!-- Append entries after each pipeline run. Format:\n"
-        "## [Date] — [Task Summary]\n"
-        "- **Action:** What was implemented\n"
-        "- **Outcome:** What happened\n"
-        "- **Lesson:** What to remember next time\n"
-        "-->\n"
-    )
-    for agent in ["Architect", "Engineer", "QA"]:
-        filename = f"{agent.lower()}-lessons.md"
-        _write_file(f".claude/agents/memory/{filename}", memory_header.format(agent=agent))
-
-    # Copy or generate pipeline skill
-    pipeline_src = templates_dir.parent / ".claude" / "skills" / "pipeline" / "SKILL.md"
-    if pipeline_src.exists():
-        _copy_file(pipeline_src, ".claude/skills/pipeline/SKILL.md")
-    else:
-        # Generate minimal pipeline skill
-        minimal_pipeline = (
-            "---\n"
-            "name: pipeline\n"
-            "description: Run the Three Hats quality pipeline "
-            "(Architect -> Engineer -> QA).\n"
-            "user-invocable: true\n"
-            "---\n\n"
-            "# Pipeline Execution Protocol\n\n"
-            "Run the Three Hats pipeline for the task described in $ARGUMENTS.\n"
-        )
-        _write_file(".claude/skills/pipeline/SKILL.md", minimal_pipeline)
-
-    # Create hook script stubs referenced by settings.json
-    guard_hook = (
-        "#!/usr/bin/env bash\n"
-        "# Guard protected files from accidental edits.\n"
-        "# Customize the PROTECTED_PATTERNS array for your project.\n"
-        "PROTECTED_PATTERNS=(\n"
-        '  ".claude/agents/*.md"\n'
-        '  ".claude/skills/*/SKILL.md"\n'
-        ")\n"
-        "exit 0\n"
-    )
-    _write_file(".claude/hooks/guard-protected-files.sh", guard_hook)
-
-    memory_hook = (
-        "#!/usr/bin/env bash\n"
-        "# Reminder to update agent memory after pipeline runs.\n"
-        'echo "Reminder: Update agent memory files if lessons were learned."\n'
-        "exit 0\n"
-    )
-    _write_file(".claude/hooks/memory-reminder.sh", memory_hook)
-
-    # Copy or generate critique skill
-    critique_src = templates_dir.parent / ".claude" / "skills" / "critique" / "SKILL.md"
-    if critique_src.exists():
-        _copy_file(critique_src, ".claude/skills/critique/SKILL.md")
-    else:
-        minimal_critique = (
-            "---\n"
-            "name: critique\n"
-            "description: Run design review only "
-            "(Architect draft + cross-critique, no implementation).\n"
-            "user-invocable: true\n"
-            "---\n\n"
-            "# Design Critique Protocol\n\n"
-            "Run a design review for the task described in $ARGUMENTS.\n"
-        )
-        _write_file(".claude/skills/critique/SKILL.md", minimal_critique)
-
-    # Generate default settings.json
-    settings = {
-        "hooks": {
-            "PreToolUse": [
-                {
-                    "matcher": "Edit|Write",
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": "bash .claude/hooks/guard-protected-files.sh"
-                        }
-                    ]
-                }
-            ],
-            "Stop": [
-                {
-                    "matcher": "",
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": "bash .claude/hooks/memory-reminder.sh"
-                        }
-                    ]
-                }
-            ]
-        }
-    }
-    _write_file(".claude/settings.json", json.dumps(settings, indent=2) + "\n")
+        if mode == "copy":
+            _copy_file(source, output_path)
+        elif mode == "render":
+            # Merge global placeholders with entry-specific render_vars
+            placeholders = {**global_placeholders, **entry.get("render_vars", {})}
+            content = source.read_text(encoding="utf-8")
+            try:
+                rendered = render_template(content, placeholders, source_name=entry["source"])
+            except TemplateError as e:
+                return {"error": str(e), "details": {"entry": entry["id"]}}
+            _write_file(output_path, rendered)
 
     return {
         "status": "created",

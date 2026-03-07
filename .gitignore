@@ -6,6 +6,5 @@ dist/
 build/
 .env
 patterns.json
-autopilot-progress.md
 .claude/STOP
 
