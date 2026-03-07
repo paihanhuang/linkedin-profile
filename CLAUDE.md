@@ -65,8 +65,8 @@ claude-mcp/
 
 - **M1:** Foundation — global CLAUDE.md, universal agents, per-agent memory, skills, hooks, rules **[DONE]**
 - **M2:** MCP Server — FastMCP with scaffold + pattern + checklist tools **[DONE]**
-- **M3:** Template System — parameterized project scaffolding from templates
-- **M4:** Docs & validation — setup guide, token analysis, cross-project testing
+- **M3:** Template System — parameterized project scaffolding from templates **[DONE]**
+- **M4:** Docs & validation — setup guide, token analysis, cross-project testing **[DONE]**
 
 ## Domain Constraints
 
