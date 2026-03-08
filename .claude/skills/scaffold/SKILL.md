@@ -1,15 +1,16 @@
 ---
 name: scaffold
-description: Generate a new project setup with CLAUDE.md, agent templates, pipeline skill, rules, and hooks from the universal templates. Use when starting a new project.
+description: Generates a new project with CLAUDE.md, agent templates, pipeline skill, hooks, and rules from universal templates. Invoked when starting a new project or bootstrapping Claude Code for an existing codebase.
 user-invocable: true
 ---
 
 # Project Scaffold
 
-Generate a complete Claude Code project setup for a new project.
+Generate a complete Claude Code project setup using `claude-mcp:scaffold_project`.
 
 ## Required Input
-The user must provide (via $ARGUMENTS or follow-up):
+
+Collect from $ARGUMENTS or follow-up:
 1. **Project name** — short identifier
 2. **Project description** — one paragraph
 3. **Tech stack** — language, frameworks, key deps
@@ -19,30 +20,17 @@ The user must provide (via $ARGUMENTS or follow-up):
 ## Steps
 
 1. **Collect input** — if any required field is missing, ask for it.
+2. **Call `claude-mcp:scaffold_project`** with collected parameters.
+3. **Review output** — verify all files were created.
+4. **Initialize git** if not already a repo.
+5. **Report** — list all files created, remind user to review CLAUDE.md.
 
-2. **Generate project CLAUDE.md** from template:
-   - Read `templates/CLAUDE.template.md` for the base structure
-   - Fill in project-specific sections (description, tech stack, structure, milestones)
-   - Domain constraints and project-specific safety rules
-   - Keep under 80 lines
+## Fallback (if MCP server unavailable)
 
-3. **Copy universal agent templates:**
-   - `.claude/agents/architect.md` — copy from this project's template
-   - `.claude/agents/engineer.md` — copy from this project's template
-   - `.claude/agents/qa.md` — copy from this project's template
-
-4. **Copy pipeline skill:**
-   - `.claude/skills/pipeline/SKILL.md` — copy from this project
-
-5. **Create agent memory files:**
-   - `.claude/agents/memory/architect-lessons.md`
-   - `.claude/agents/memory/engineer-lessons.md`
-   - `.claude/agents/memory/qa-lessons.md`
-
-6. **Create project hooks** in `.claude/settings.json`
-
-7. **Create path-scoped rules** if the project has distinct source areas (e.g., `src/`, `tests/`, `configs/`)
-
-8. **Initialize git** if not already a repo.
-
-9. **Report** — list all files created, remind user to review CLAUDE.md.
+If `claude-mcp:scaffold_project` is not available, create files manually:
+- `CLAUDE.md` — render from `templates/CLAUDE.template.md`
+- `.claude/agents/{architect,engineer,qa}.md` — copy from templates
+- `.claude/agents/memory/{architect,engineer,qa}-lessons.md` — empty with header
+- `.claude/skills/pipeline/SKILL.md` — copy from templates
+- `.claude/settings.json` — hooks configuration
+- `.claude/rules/` — path-scoped rules if project has distinct source areas

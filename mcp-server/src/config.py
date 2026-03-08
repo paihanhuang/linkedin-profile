@@ -16,6 +16,10 @@ DEFAULT_CHECK_TIMEOUT: int = 30
 MAX_CHECK_TIMEOUT: int = 300
 MAX_EVIDENCE_CHARS: int = 5000
 
+# Batch API
+DEFAULT_BATCH_MODEL: str = "claude-sonnet-4-20250514"
+DEFAULT_BATCH_MAX_TOKENS: int = 4096
+
 
 def resolve_templates_dir() -> Path | None:
     """Resolve the templates directory.

@@ -103,6 +103,83 @@ Hooks inject reminders and guards without spending tokens on Claude "remembering
 
 Hooks execute deterministically — CLAUDE.md rules are advisory and may be forgotten under context pressure.
 
+## Optimization 8: Prompt Caching
+
+Claude Code automatically caches the system prompt prefix across turns. Content that stays stable between turns is read from cache (at ~90% reduced cost) instead of being re-processed.
+
+**How the 3-layer architecture maximizes cache hits:**
+
+```
+Cached (stable across turns)          Variable (changes each turn)
+┌──────────────────────────┐          ┌────────────────────────┐
+│ Layer 1: Global CLAUDE.md│          │ User messages          │
+│ (~1,000 tokens)          │          │ Tool results           │
+│                          │          │ Agent outputs          │
+│ Layer 2: Project CLAUDE.md          │ File contents          │
+│ (~970 tokens)            │          │                        │
+│                          │          │                        │
+│ Tool definitions (MCP)   │          │                        │
+│ (~600 tokens)            │          │                        │
+└──────────────────────────┘          └────────────────────────┘
+        ~2,570 tokens                     Varies per turn
+        cached automatically
+```
+
+**Cache hit requirements:**
+- Content must be an exact prefix match — any edit to CLAUDE.md invalidates the cache for that session
+- Minimum cacheable size: 1,024 tokens (Sonnet) or 2,048 tokens (Opus)
+- Combined global + project CLAUDE.md (~1,970 tokens) meets the threshold for most models
+- Tool definitions are appended to the system prompt and also cached
+
+**Best practices for maximizing cache hits:**
+
+1. **Keep CLAUDE.md stable** — avoid editing it mid-session. Make changes between sessions.
+2. **Put stable content first** — identity, values, workflow rules before milestones or status.
+3. **Move volatile content out of CLAUDE.md** — progress tracking, current task state, and TODO lists belong in separate files read on demand, not in the always-loaded CLAUDE.md.
+4. **Use hooks for state injection** — the `SessionStart` hook injects current state (recent commits, milestones) without polluting the cached system prompt.
+5. **Don't duplicate MCP tool descriptions in CLAUDE.md** — tool schemas are already in the system prompt via MCP registration.
+
+**Estimated savings from caching:**
+
+| Content | Tokens | Cache Savings (90%) |
+|---------|-------:|--------------------:|
+| Global CLAUDE.md | 1,000 | 900/turn |
+| Project CLAUDE.md | 970 | 873/turn |
+| Tool definitions | ~600 | 540/turn |
+| **Total** | **~2,570** | **~2,313/turn** |
+
+Over a 20-turn session: **~46,000 tokens saved** from caching alone.
+
+## Optimization 9: Message Batches API (50% Cost Savings)
+
+The Anthropic Message Batches API processes requests at **50% reduced cost** in exchange for asynchronous delivery (typically minutes, guaranteed within 24 hours).
+
+**MCP tools:** `submit_batch`, `check_batch`, `get_batch_results`
+
+**Pipeline tasks suitable for batching:**
+
+| Task | Typical Tokens | Batch Savings (50%) |
+|------|---------------:|--------------------:|
+| Engineer critique | ~2,000 | ~1,000 |
+| QA critique | ~2,000 | ~1,000 |
+| QA verification | ~3,000 | ~1,500 |
+| Documentation review | ~1,500 | ~750 |
+
+**Example: Cross-critique phase**
+
+Instead of spawning 2 subagents interactively (~4,000 tokens at full price), submit both critiques as a batch:
+```
+submit_batch([
+  {"id": "eng-critique", "prompt": "...", "system": "..."},
+  {"id": "qa-critique",  "prompt": "...", "system": "..."}
+])
+```
+Cost: ~2,000 tokens (50% of 4,000). Results ready in minutes.
+
+**When to batch:** Any parallel, independent subtask that doesn't block the current conversation and can wait up to 1 hour.
+
+**When NOT to batch:** Interactive work, sequential dependencies, tasks needing immediate response.
+
 ## Summary
 
 | Optimization | Tokens Saved | When |
@@ -114,7 +191,9 @@ Hooks execute deterministically — CLAUDE.md rules are advisory and may be forg
 | MCP tools | 650-2,700 | Each tool use |
 | Agent memory | 1,000-5,000 | Each pipeline run |
 | Hooks | 500-3,000 | Each trigger event |
+| Prompt caching | ~2,313 | Every turn (after first) |
+| Message batches | 50% of batch | Non-urgent parallel tasks |
 
-**Estimated total savings per typical session:** ~15,000-20,000 tokens compared to a monolithic CLAUDE.md approach.
+**Estimated total savings per typical 20-turn session:** ~60,000-80,000 tokens compared to a monolithic, uncached approach.
 
-The primary savings come from context separation (moving agents, skills, and rules out of the always-loaded base context) and MCP tools (replacing multi-step file operations with single tool calls). These optimizations compound: a 10-turn session with 2 tool calls and no pipeline saves roughly 150,000+ tokens compared to the naive approach.
+The primary savings come from prompt caching (stable system prompt cached at 90% discount), context separation (agents, skills, and rules not in base context), and MCP tools (single tool calls replacing multi-step operations). These optimizations compound across turns.

@@ -4,6 +4,7 @@ import logging
 
 from fastmcp import FastMCP
 
+from src.tools.batch import submit_batch, check_batch, get_batch_results
 from src.tools.patterns import save_pattern, get_pattern, search_patterns, delete_pattern
 from src.tools.scaffold import scaffold_project
 from src.tools.checklist import check_criteria
@@ -18,6 +19,9 @@ mcp.tool()(search_patterns)
 mcp.tool()(delete_pattern)
 mcp.tool()(scaffold_project)
 mcp.tool()(check_criteria)
+mcp.tool()(submit_batch)
+mcp.tool()(check_batch)
+mcp.tool()(get_batch_results)
 
 
 def main() -> None:
