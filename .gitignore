@@ -8,3 +8,8 @@ build/
 patterns.json
 .claude/STOP
 
+# Personal info — do not commit
+resume/
+output/
+config/job_targets.yaml
+

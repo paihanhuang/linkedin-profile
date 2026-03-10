@@ -2,76 +2,61 @@
 
 ## Project
 
-**Claude Code Optimization Toolkit** (`claude-mcp`) — infrastructure for optimizing Claude Code workflows across projects: universal agent templates, MCP server for token efficiency, skills archive, and project scaffolding.
+**LinkedIn Profile Builder Agent** — multi-agent pipeline that generates a high-impact LinkedIn profile optimized for executive recruiter discovery and job matching, given a resume and target role preferences.
 
 Goals:
-1. Improve deliverable quality via cross-critique design pipeline
-2. Ensure robustness through universal, project-agnostic templates
-3. Build transferable setup (skills, templates, scaffolding)
-4. Minimize token waste via MCP tools and deduplication
+1. Generate LinkedIn profiles that maximize recruiter search visibility
+2. Tailor content to specific VP/C-suite target roles
+3. Validate discoverability against real job postings via web research
+4. Produce actionable, copy-paste-ready profile content
 
 ## Tech Stack
 
 - **Language:** Python 3.11+
-- **MCP Framework:** FastMCP
-- **Package management:** uv
-- **Templates:** Markdown with `{{PLACEHOLDER}}` syntax
+- **PDF Parsing:** PyMuPDF (fitz)
+- **LLM:** Agent-native (uses the orchestrating agent directly)
+- **Web Research:** Agent-native (uses agent's search/browser tools)
+- **Config:** YAML for job targets and settings
 - **No heavy external deps** unless justified
 
 ## Project Structure
 
 ```
-claude-mcp/
+linkedin-profile/
 ├── CLAUDE.md                        # Project-specific context
+├── resume/                          # User resume(s)
+│   └── *.pdf                        # Source resume files
+├── config/
+│   └── job_targets.yaml             # Target roles and preferences
+├── src/
+│   ├── resume_parser.py             # PDF → structured resume data
+│   ├── profile_formatter.py         # Profile output formatting
+│   └── scoring.py                   # Keyword overlap scoring
+├── output/                          # Generated profiles + scorecards
 ├── .claude/
-│   ├── settings.json                # Hooks configuration
-│   ├── hooks/                       # Hook scripts
-│   │   ├── guard-protected-files.sh # Block edits to universal templates
-│   │   ├── memory-reminder.sh       # Post-pipeline memory update reminder
-│   │   └── preserve-pipeline-state.sh # Re-inject state before compaction
 │   ├── agents/
-│   │   ├── architect.md             # Design agent (universal)
-│   │   ├── engineer.md              # Implementation + review agent (universal)
-│   │   ├── qa.md                    # Verification + review agent (universal)
+│   │   ├── architect.md             # Profile Strategist
+│   │   ├── engineer.md              # Profile Writer
+│   │   ├── qa.md                    # Profile Validator
 │   │   └── memory/                  # Per-agent lesson logs
-│   │       ├── architect-lessons.md
-│   │       ├── engineer-lessons.md
-│   │       └── qa-lessons.md
-│   ├── skills/                      # On-demand skills (no base-context cost)
-│   │   ├── pipeline/SKILL.md        # /pipeline — full Three Hats execution
-│   │   ├── critique/SKILL.md        # /critique — design review only
-│   │   └── scaffold/SKILL.md        # /scaffold — new project setup
-│   └── rules/                       # Path-scoped rules (load only when relevant)
-│       ├── mcp-server.md            # paths: mcp-server/**
-│       ├── templates.md             # paths: templates/**
-│       └── skills.md                # paths: .claude/skills/**, skills/**
-├── templates/                       # Scaffolding templates
-│   ├── CLAUDE.template.md           # Base CLAUDE.md with placeholders
-│   └── agents/                      # Agent template variants
-├── mcp-server/                      # Token-saving MCP tools
-│   ├── pyproject.toml
-│   └── src/
-│       ├── server.py                # FastMCP entry point
-│       └── tools/
-│           ├── scaffold.py          # Generate project from template
-│           ├── patterns.py          # Store/retrieve proven patterns
-│           └── checklist.py         # Acceptance criteria runner
+│   ├── skills/
+│   │   └── profile/SKILL.md         # /profile pipeline orchestration
+│   └── settings.json                # Hooks configuration
+├── mcp-server/                      # MCP tools (inherited)
 └── docs/
-    ├── architecture.md
-    └── token-optimization.md
 ```
 
 ## Milestones
 
-- **M1:** Foundation — global CLAUDE.md, universal agents, per-agent memory, skills, hooks, rules **[DONE]**
-- **M2:** MCP Server — FastMCP with scaffold + pattern + checklist tools **[DONE]**
-- **M3:** Template System — parameterized project scaffolding from templates **[DONE]**
-- **M4:** Docs & validation — setup guide, token analysis, cross-project testing **[DONE]**
+- **M1:** Foundation — agent templates, pipeline skill, resume parser, config schema **[IN PROGRESS]**
+- **M2:** End-to-end run — generate first profile using pipeline **[PLANNED]**
+- **M3:** QA validation — web search scoring against real postings **[PLANNED]**
+- **M4:** Polish — iteration, multi-target support, output quality **[PLANNED]**
 
 ## Domain Constraints
 
-- Templates must work across project types (ML, web, CLI, data pipeline)
-- Agent templates must be fully project-agnostic — project context comes from auto-loaded CLAUDE.md
-- MCP tools must demonstrably reduce token usage
-- All artifacts must be self-contained and composable
-- Changes to universal templates must not break existing project setups
+- All profile claims must be traceable to the resume (no fabrication)
+- LinkedIn character limits must be enforced (headline ≤220, summary ≤2600)
+- Tone must match executive/VP-level positioning
+- Keywords must be incorporated naturally, not stuffed
+- Agent templates must follow the Three Hats pattern
